@@ -57,9 +57,18 @@ main{max-width:640px;margin:0 auto;padding:14px 14px 20px}
   background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
   padding:18px 16px;margin-bottom:14px;
 }
-.qhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.qhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .qnum{font-size:12.5px;font-weight:700;color:var(--primary);background:var(--primary-soft);padding:3px 10px;border-radius:999px}
 .qtype{font-size:11.5px;color:var(--sub);background:var(--line);padding:3px 10px;border-radius:999px}
+.qcnt{font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-soft);padding:3px 10px;border-radius:999px}
+.qcnt.fail{color:var(--err);background:var(--err-soft)}
+/* 滑动提示 */
+.swipe-hint{font-size:11.5px;color:var(--sub);text-align:center;margin:-4px 0 10px;display:flex;align-items:center;justify-content:center;gap:14px;user-select:none}
+.swipe-hint span{display:inline-flex;align-items:center;gap:3px}
+/* 重新作答 */
+.redo-row{margin-top:12px}
+.redo-btn{width:100%;padding:10px;border-radius:12px;border:1.5px dashed var(--warn);background:var(--warn-soft);color:var(--warn);font-size:13.5px;font-weight:700;cursor:pointer;transition:all .15s;user-select:none}
+.redo-btn:active{transform:scale(.985)}
 .qstem{font-size:17px;font-weight:600;line-height:1.75;margin-bottom:16px;word-break:break-word}
 /* 选项 */
 .opts{display:flex;flex-direction:column;gap:10px}
@@ -143,9 +152,14 @@ main{max-width:640px;margin:0 auto;padding:14px 14px 20px}
 .wb-empty{text-align:center;padding:50px 20px;color:var(--sub);font-size:14.5px}
 .wb-item{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:13px 15px;margin-bottom:10px;cursor:pointer;border-left:4px solid var(--err)}
 .wb-item .q{font-size:14.5px;font-weight:600;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.wb-item .meta{font-size:11.5px;color:var(--sub);margin-top:5px;display:flex;gap:8px;align-items:center}
+.wb-item .meta{font-size:11.5px;color:var(--sub);margin-top:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .wb-item .tag{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--line);color:var(--sub);font-weight:600}
+.wb-item .fail{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--err-soft);color:var(--err);font-weight:700}
+.wb-item .weak{font-size:10.5px;padding:1px 7px;border-radius:99px;background:#7c3aed22;color:#7c3aed;font-weight:700}
 .wb-actions{display:flex;gap:10px;margin:12px 0 14px}
+/* 重置记录 */
+.reset-row{margin-top:14px}
+.reset-row .btn{width:100%}
 /* 底部导航 */
 nav{
   position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);
@@ -229,6 +243,7 @@ nav button.on{color:var(--primary)}
       <div class="stat-card"><div class="num red" id="stWrong">0</div><div class="lbl">错题</div></div>
     </div>
     <div class="part-list" id="partList"></div>
+    <div class="reset-row"><button class="btn ghost" id="resetRecordsBtn">🔄 重置全部答题记录（从头重刷）</button></div>
   </section>
 
   <!-- 错题本视图 -->
@@ -267,15 +282,44 @@ nav button.on{color:var(--primary)}
 
 var DATA = window.QUIZ_DATA;
 var PARTS = DATA.parts;                 // [{name,type,count,questions}]
-var REC_KEY = 'aitrainer_records_v1';   // { 'type:qid': answer }
+var REC_KEY = 'aitrainer_records_v2';   // { 'type:qid': {ans, ok, fail, t} }
+var OLD_KEY = 'aitrainer_records_v1';   // 旧版记录（仅存答案），用于迁移
 var THEME_KEY = 'aitrainer_theme';
 var SESSION_KEY = 'aitrainer_session';  // 当前会话（题序、位置、模式）
 
 var records = loadRecords();
 
 /* ---------- 工具 ---------- */
+function findQuestion(type, id){
+  var p = getPart(type);
+  if (!p) return null;
+  for (var i=0;i<p.questions.length;i++){ if (p.questions[i].id === id) return p.questions[i]; }
+  return null;
+}
 function loadRecords(){
-  try{ return JSON.parse(localStorage.getItem(REC_KEY)) || {}; }catch(e){ return {}; }
+  var data = {};
+  try{ data = JSON.parse(localStorage.getItem(REC_KEY)) || {}; }catch(e){}
+  // 首次升级：把旧版 v1 记录迁移为 v2（答案 + 次数），保留已有进度
+  var hasV2 = false;
+  Object.keys(data).forEach(function(k){
+    if (data[k] && typeof data[k] === 'object' && 'ans' in data[k]) hasV2 = true;
+  });
+  if (!hasV2){
+    var old = null;
+    try{ old = JSON.parse(localStorage.getItem(OLD_KEY)) || {}; }catch(e){}
+    if (old && Object.keys(old).length){
+      Object.keys(old).forEach(function(k){
+        var v = old[k];
+        var parts2 = k.split(':');
+        var type = parts2[0], id = parseInt(parts2[1], 10);
+        var q = findQuestion(type, id);
+        var correct = q ? isCorrect(type, q, v) : false;
+        data[k] = {ans: v, ok: correct ? 1 : 0, fail: correct ? 0 : 1, t: 0};
+      });
+      try{ localStorage.setItem(REC_KEY, JSON.stringify(data)); }catch(e){}
+    }
+  }
+  return data;
 }
 function saveRecords(){ try{ localStorage.setItem(REC_KEY, JSON.stringify(records)); }catch(e){} }
 function qKey(type, id){ return type + ':' + id; }
@@ -288,7 +332,12 @@ function isCorrect(type, q, userAns){
   if (Array.isArray(q.answer)) return normalizeAns(userAns) === normalizeAns(q.answer);
   return String(userAns) === q.answer;
 }
-function getAnswered(type, id){ return records[qKey(type, id)]; }
+function getRecord(type, id){
+  var r = records[qKey(type, id)];
+  if (r && typeof r === 'object' && 'ans' in r) return r;
+  return null;
+}
+function getAns(type, id){ var r = getRecord(type, id); return r ? r.ans : undefined; }
 function getPart(type){ return PARTS.filter(function(p){return p.type===type;})[0]; }
 function allQuestions(type){
   if (type === 'all') {
@@ -327,6 +376,8 @@ var state = {
   pos: 0,               // 当前下标
   answered: false,      // 本题是否已判分
   userSel: null,        // 用户选择（tf: '√'/'×'；single: 'A'；multi: [..]）
+  redoing: false,       // 历史回显中点击"重新作答"后为 true
+  _rPos: -1,            // 上次渲染的题序位置（用于重置 redoing）
 };
 
 /* ---------- 视图切换 ---------- */
@@ -369,8 +420,9 @@ function renderModeChips(){
 /* ---------- 会话 ---------- */
 function startSession(){
   var all = allQuestions(state.part);
+  state.redoing = false;
   if (state.mode === 'wrong') {
-    var wrong = all.filter(function(it){ var a = getAnswered(it.part, it.q.id); return a !== undefined && !isCorrect(it.part, it.q, a); });
+    var wrong = all.filter(function(it){ var a = getRecord(it.part, it.q.id); return a && !isCorrect(it.part, it.q, a.ans); });
     if (wrong.length === 0){ renderFinished('🎉', '错题本已清空', '当前没有错题，继续加油！'); return; }
     state.list = wrong;
     state.pos = 0;
@@ -378,10 +430,10 @@ function startSession(){
     state.list = shuffle(all);
     state.pos = 0;
   } else {
-    // 顺序：从第一个未答题开始
+    // 顺序：从第一个未答题开始；若已全部答完则从头开始（可重复刷多遍）
     var start = 0;
     for (var i=0;i<all.length;i++){
-      if (getAnswered(all[i].part, all[i].q.id) === undefined){ start = i; break; }
+      if (getRecord(all[i].part, all[i].q.id) === null){ start = i; break; }
     }
     state.list = all;
     state.pos = start;
@@ -397,20 +449,30 @@ function renderQuiz(){
   var area = document.getElementById('quizArea');
   if (!state.list.length) return;
   if (state.pos >= state.list.length){ renderFinished('🎉','恭喜！本轮全部完成','可切换模式继续刷题'); return; }
+  // 切换到新题：重置"重新作答"状态并回到顶部
+  if (state.pos !== state._rPos) state.redoing = false;
+  state._rPos = state.pos;
+  window.scrollTo(0, 0);
+
   var it = current();
   var part = getPart(it.part);
   var q = it.q;
   var type = it.part;
+  var rec = getRecord(type, q.id);
+  var hasHistory = rec !== null && state.mode !== 'wrong';
 
   // 进度
   var total = state.list.length;
-  var doneCount = state.list.filter(function(x){ return getAnswered(x.part, x.q.id) !== undefined; }).length;
+  var doneCount = state.list.filter(function(x){ return getRecord(x.part, x.q.id) !== null; }).length;
   document.getElementById('progressTxt').textContent = '第 ' + (state.pos + 1) + ' / ' + total + ' 题';
   document.getElementById('progressBar').style.width = Math.round((state.pos + (state.answered?1:0)) / total * 100) + '%';
 
   var html = '';
+  html += '<div class="swipe-hint"><span>👆 上滑下一题</span><span>👇 下滑上一题</span></div>';
   html += '<div class="qcard">';
-  html += '<div class="qhead"><span class="qnum">第 ' + q.id + ' 题</span><span class="qtype">' + part.name + '</span></div>';
+  var badge = '';
+  if (rec) badge = '<span class="qcnt' + (rec.fail > 0 ? ' fail' : '') + '">已答 ' + (rec.ok + rec.fail) + ' 次 · 对 ' + rec.ok + ' 错 ' + rec.fail + '</span>';
+  html += '<div class="qhead"><span class="qnum">第 ' + q.id + ' 题</span><span class="qtype">' + part.name + '</span>' + badge + '</div>';
   html += '<div class="qstem">' + escapeHtml(q.question) + '</div>';
 
   var isTf = type === 'tf';
@@ -431,6 +493,9 @@ function renderQuiz(){
           '<button class="exp-toggle" id="expToggle" type="button">📖 查看解析 <span class="ar">▾</span></button>' +
           '<div class="exp-body"><span class="exp-label">解析：</span><span id="expText">' + escapeHtml(q.explanation || '暂无解析') + '</span></div>' +
           '</div>';
+  if (hasHistory && !state.redoing) {
+    html += '<div class="redo-row"><button class="redo-btn" id="redoBtn" type="button">🔄 重新作答（再刷一遍）</button></div>';
+  }
   html += '<div class="actions">';
   html += '<button class="btn ghost" id="prevBtn">上一题</button>';
   html += (type === 'multi') ? '<button class="btn" id="submitBtn">提交答案</button>' : '<button class="btn" id="nextBtn" disabled>下一题</button>';
@@ -441,14 +506,13 @@ function renderQuiz(){
   var qc = area.querySelector('.qcard');
   var feedback = document.getElementById('feedback');
 
-  // 若该题已答过（非错题重练），直接显示历史作答状态
-  var saved = getAnswered(type, q.id);
-  if (saved !== undefined && state.mode !== 'wrong') {
+  // 若该题已答过（非错题重练，且未点"重新作答"），直接显示历史作答状态
+  if (hasHistory && !state.redoing) {
     state.answered = true;
-    var correct = isCorrect(type, q, saved);
-    state.userSel = saved;
-    renderAnswerState(qc, type, saved, correct, false);
-    feedback.innerHTML = buildFeedback(type, q, saved, correct, true);
+    var correct = isCorrect(type, q, rec.ans);
+    state.userSel = rec.ans;
+    renderAnswerState(qc, type, rec.ans, correct, false);
+    feedback.innerHTML = buildFeedback(type, q, rec.ans, correct, true);
     feedback.className = 'feedback show ' + (correct ? 'ok' : 'err');
     var nb = document.getElementById('nextBtn');
     if (nb) nb.disabled = false;
@@ -456,11 +520,17 @@ function renderQuiz(){
       var sb2 = document.getElementById('submitBtn');
       if (sb2){ sb2.textContent = '下一题'; sb2.onclick = next; }
     }
-    // 历史回显：答错自动展开解析，答对折叠可点击查看
+    // 历史回显：上次答错自动展开解析，答对折叠可点击查看
     showExplain(!correct);
+    var rb = document.getElementById('redoBtn');
+    if (rb) rb.onclick = function(){
+      state.redoing = true; state.answered = false; state.userSel = null;
+      renderQuiz();
+    };
   }
 
   bindExplain();
+  bindSwipe();
 
   // 事件绑定
   if (isTf) {
@@ -517,28 +587,66 @@ function showExplain(auto){
   else box.classList.remove('open');
   expToggleLabel(box);
 }
+/* ---------- 滑动刷题（上滑下一题 / 下滑上一题） ---------- */
+function bindSwipe(){
+  var qc = document.getElementById('quizArea').querySelector('.qcard');
+  if (!qc || qc._swiped) return;
+  qc._swiped = true;
+  var sx = 0, sy = 0, startScroll = 0, active = false, moved = false;
+  function scrollTop(){ return (document.scrollingElement || document.documentElement).scrollTop; }
+  qc.addEventListener('touchstart', function(e){
+    if (e.touches.length !== 1) return;
+    var t = e.touches[0];
+    sx = t.clientX; sy = t.clientY;
+    startScroll = scrollTop();
+    active = true; moved = false;
+  }, {passive: true});
+  qc.addEventListener('touchmove', function(e){
+    if (!active || e.touches.length !== 1) return;
+    var t = e.touches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    // 页面在滚动（内容超屏）→ 取消滑动手势，交给页面滚动
+    if (Math.abs(scrollTop() - startScroll) > 8){ active = false; return; }
+    // 横向滑动 → 取消
+    if (Math.abs(dx) > Math.abs(dy) * 1.5){ active = false; return; }
+    if (Math.abs(dy) > 14) moved = true;
+  }, {passive: true});
+  qc.addEventListener('touchend', function(e){
+    if (!active || !moved){ active = false; return; }
+    var dy = (e.changedTouches[0].clientY - sy);
+    active = false; moved = false;
+    if (dy < -60) next();        // 上滑 → 下一题
+    else if (dy > 60) prev();    // 下滑 → 上一题
+  }, {passive: true});
+}
+function prev(){
+  if (state.pos > 0) { state.pos--; state.answered = false; state.userSel = null; renderQuiz(); }
+  else toast('已经是第一题');
+}
 function judgeTf(ans){
   var it = current(), q = it.q, type = it.part;
   var correct = ans === q.answer;
-  state.userSel = ans; state.answered = true;
+  state.userSel = ans; state.answered = true; state.redoing = false;
   recordAnswer(type, q.id, ans, correct);
   var qc = document.getElementById('quizArea').querySelector('.qcard');
   renderAnswerState(qc, type, ans, correct, false);
   showFeedback(type, q, ans, correct);
   showExplain(!correct);
-  document.getElementById('nextBtn').disabled = false;
+  var nb = document.getElementById('nextBtn');
+  if (nb) nb.disabled = false;
 }
 function judgeSingle(){
   var it = current(), q = it.q, type = it.part;
   var ans = state.userSel;
   var correct = ans === q.answer;
-  state.answered = true;
+  state.answered = true; state.redoing = false;
   recordAnswer(type, q.id, ans, correct);
   var qc = document.getElementById('quizArea').querySelector('.qcard');
   renderAnswerState(qc, type, ans, correct, false);
   showFeedback(type, q, ans, correct);
   showExplain(!correct);
-  document.getElementById('nextBtn').disabled = false;
+  var nb = document.getElementById('nextBtn');
+  if (nb) nb.disabled = false;
 }
 function judgeMulti(){
   var it = current(), q = it.q, type = it.part;
@@ -547,7 +655,7 @@ function judgeMulti(){
   var ans = [];
   opts.forEach(function(o){ ans.push(o.dataset.label); });
   var correct = normalizeAns(ans) === normalizeAns(q.answer);
-  state.userSel = ans; state.answered = true;
+  state.userSel = ans; state.answered = true; state.redoing = false;
   recordAnswer(type, q.id, ans, correct);
   renderAnswerState(document.getElementById('quizArea').querySelector('.qcard'), type, ans, correct, false);
   showFeedback(type, q, ans, correct);
@@ -577,7 +685,7 @@ function renderAnswerState(qc, type, userAns, correct, isHistory){
   });
 }
 function buildFeedback(type, q, userAns, correct, isHistory){
-  var h = '<div class="fb-title">' + (correct ? '✅ 回答正确' : '❌ 回答错误') + '</div>';
+  var h = '<div class="fb-title">' + (isHistory ? (correct ? '✅ 上次答对' : '❌ 上次答错') : (correct ? '✅ 回答正确' : '❌ 回答错误')) + '</div>';
   if (type === 'tf') {
     h += '<div class="ans-line">正确答案：' + q.answer + '</div>';
   } else {
@@ -595,11 +703,39 @@ function showFeedback(type, q, userAns, correct){
   fb.className = 'feedback show ' + (correct ? 'ok' : 'err');
 }
 function recordAnswer(type, id, ans, correct){
-  records[qKey(type, id)] = ans;
+  var key = qKey(type, id);
+  var rec = records[key];
+  if (!rec || typeof rec !== 'object' || !('ans' in rec)) rec = {ans: ans, ok: 0, fail: 0, t: 0};
+  rec.ans = ans;
+  if (correct) rec.ok++;
+  else rec.fail++;
+  rec.t = Date.now();
+  records[key] = rec;
   saveRecords();
+  updateBadge(type, id);
   // 错题重练模式：答对自动移出错题本
   if (state.mode === 'wrong' && correct) {
     setTimeout(function(){ toast('答对了，已从错题本移除 ✔'); }, 400);
+  }
+}
+function updateBadge(type, id){
+  var rec = getRecord(type, id);
+  var head = document.querySelector('.qhead');
+  if (!head) return;
+  var badgeEl = head.querySelector('.qcnt');
+  if (!rec){
+    if (badgeEl) badgeEl.remove();
+    return;
+  }
+  var txt = '已答 ' + (rec.ok + rec.fail) + ' 次 · 对 ' + rec.ok + ' 错 ' + rec.fail;
+  if (!badgeEl){
+    var el = document.createElement('span');
+    el.className = 'qcnt' + (rec.fail > 0 ? ' fail' : '');
+    el.textContent = txt;
+    head.appendChild(el);
+  } else {
+    badgeEl.className = 'qcnt' + (rec.fail > 0 ? ' fail' : '');
+    badgeEl.textContent = txt;
   }
 }
 function next(){
@@ -613,7 +749,7 @@ function next(){
 function renderFinished(emoji, title, desc){
   var area = document.getElementById('quizArea');
   var total = state.list.length;
-  var done = state.list.filter(function(x){ return getAnswered(x.part, x.q.id) !== undefined; }).length;
+  var done = state.list.filter(function(x){ return getRecord(x.part, x.q.id) !== null; }).length;
   document.getElementById('progressTxt').textContent = done + ' / ' + total + ' 已作答';
   document.getElementById('progressBar').style.width = Math.round(done / total * 100) + '%';
   area.innerHTML = '<div class="finished"><div class="big">' + emoji + '</div><h2>' + title + '</h2><p>' + desc + '</p>' +
@@ -627,16 +763,16 @@ function renderFinished(emoji, title, desc){
 
 /* ---------- 统计 ---------- */
 function renderStats(){
-  var total = 0, done = 0, right = 0;
+  var total = 0, done = 0, right = 0, totalTries = 0;
   var perPart = [];
   PARTS.forEach(function(p){
-    var pd = 0, pr = 0;
+    var pd = 0, pr = 0, pt = 0;
     p.questions.forEach(function(q){
       total++;
-      var a = getAnswered(p.type, q.id);
-      if (a !== undefined){ done++; pd++; if (isCorrect(p.type, q, a)){ right++; pr++; } }
+      var a = getRecord(p.type, q.id);
+      if (a){ done++; pd++; pt += (a.ok + a.fail); totalTries += (a.ok + a.fail); if (isCorrect(p.type, q, a.ans)){ right++; pr++; } }
     });
-    perPart.push({name:p.name, type:p.type, count:p.questions.length, done:pd, right:pr});
+    perPart.push({name:p.name, type:p.type, count:p.questions.length, done:pd, right:pr, tries:pt});
   });
   document.getElementById('stTotal').textContent = total;
   document.getElementById('stDone').textContent = done;
@@ -654,7 +790,9 @@ function renderStats(){
     '<circle cx="75" cy="75" r="' + r + '" fill="none" stroke="' + (pct >= 60 ? '#16a34a' : pct >= 30 ? '#d97706' : '#dc2626') + '" stroke-width="14" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + off + '"/>' +
     '</svg>' +
     '<div class="ring-txt"><b>' + pct + '%</b><span>正确率</span></div>';
-  document.getElementById('ringHint').textContent = done ? ('已作答 ' + done + ' 题 · 答对 ' + right + ' 题') : '暂无作答记录，去刷题吧！';
+  document.getElementById('ringHint').textContent = done
+    ? ('已做过 ' + done + ' 题 · 累计作答 ' + totalTries + ' 遍 · 答对 ' + right + ' 题')
+    : '暂无作答记录，去刷题吧！';
 
   // 分题型
   var list = document.getElementById('partList');
@@ -667,7 +805,7 @@ function renderStats(){
     el.className = 'part-card';
     el.innerHTML = '<div class="part-ico" style="background:' + col[1] + '">' + (p.type==='tf'?'⚖️':p.type==='single'?'🔘':'☑️') + '</div>' +
       '<div class="info"><div class="nm">' + p.name + '</div>' +
-      '<div class="dt">已答 ' + p.done + ' / ' + p.count + ' · 对 ' + p.right + ' · 正确率 ' + pct2 + '%</div>' +
+      '<div class="dt">已做 ' + p.done + ' / ' + p.count + ' · 累计 ' + p.tries + ' 遍 · 对 ' + p.right + ' · 正确率 ' + pct2 + '%</div>' +
       '<div class="part-bar"><i style="width:' + Math.round(p.done/p.count*100) + '%;background:' + col[0] + '"></i></div></div>';
     el.onclick = function(){ state.part = p.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession(); switchView('quiz'); };
     list.appendChild(el);
@@ -679,10 +817,12 @@ function wrongList(){
   var arr = [];
   PARTS.forEach(function(p){
     p.questions.forEach(function(q){
-      var a = getAnswered(p.type, q.id);
-      if (a !== undefined && !isCorrect(p.type, q, a)) arr.push({part:p.type, q:q});
+      var a = getRecord(p.type, q.id);
+      if (a && !isCorrect(p.type, q, a.ans)) arr.push({part:p.type, q:q, rec:a});
     });
   });
+  // 按答错次数降序，薄弱题优先
+  arr.sort(function(x, y){ return (y.rec.fail - x.rec.fail) || (x.q.id - y.q.id); });
   return arr;
 }
 function renderWrong(){
@@ -690,7 +830,7 @@ function renderWrong(){
   var wl = wrongList();
   document.getElementById('retryWrongBtn').textContent = '重练错题（' + wl.length + '）';
   if (!wl.length){
-    box.innerHTML = '<div class="wb-empty">📕 错题本是空的<br><span style="font-size:12.5px">做错的题目会自动收录到这里</span></div>';
+    box.innerHTML = '<div class="wb-empty">📕 错题本是空的<br><span style="font-size:12.5px">做错的题目会自动收录到这里，可反复重练</span></div>';
     return;
   }
   box.innerHTML = '';
@@ -698,8 +838,10 @@ function renderWrong(){
     var part = getPart(it.part);
     var el = document.createElement('div');
     el.className = 'wb-item';
+    var weak = it.rec.fail >= 2 ? '<span class="weak">💪薄弱</span>' : '';
     el.innerHTML = '<div class="q">' + escapeHtml(it.q.question) + '</div>' +
       '<div class="meta"><span class="tag">' + part.name + '</span><span>第' + it.q.id + '题</span>' +
+      '<span class="fail">答错 ' + it.rec.fail + ' 次</span>' + weak +
       '<span style="color:var(--err)">正确答案：' + answerText(it.q) + '</span></div>';
     el.onclick = function(){
       state.part = it.part; state.mode = 'wrong'; renderPartChips(); renderModeChips();
@@ -753,6 +895,21 @@ function init(){
       toast('错题本已清空');
     });
   };
+  var resetBtn = document.getElementById('resetRecordsBtn');
+  if (resetBtn) resetBtn.onclick = function(){
+    confirmDialog('重置全部答题记录', '将清空所有答题、错题与次数统计，从头开始全新刷题。此操作不可恢复，确定继续吗？', '全部重置', function(ok){
+      if (!ok) return;
+      records = {};
+      saveRecords(); renderStats(); renderWrong();
+      state.part = 'all'; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession();
+      toast('已重置，从头开始刷题');
+    });
+  };
+  // 键盘快捷刷题：↑ 上一题、↓ 下一题
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowDown'){ e.preventDefault(); next(); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); prev(); }
+  });
   var sub = document.getElementById('headerSub');
   sub.textContent = DATA.title + ' · 共 ' + DATA.total + ' 题';
   renderPartChips();
