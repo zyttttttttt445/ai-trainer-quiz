@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>AI训练师刷题 · 三级理论</title>
+<style>
+:root{
+  --bg:#f1f5f9; --card:#ffffff; --text:#0f172a; --sub:#64748b; --line:#e2e8f0;
+  --primary:#2563eb; --primary-soft:#dbeafe; --ok:#16a34a; --ok-soft:#dcfce7;
+  --err:#dc2626; --err-soft:#fee2e2; --warn:#d97706; --warn-soft:#fef3c7;
+  --radius:16px; --shadow:0 1px 3px rgba(15,23,42,.08),0 4px 16px rgba(15,23,42,.06);
+  --nav-h:60px;
+}
+[data-theme="dark"]{
+  --bg:#0b1220; --card:#151e2e; --text:#e2e8f0; --sub:#94a3b8; --line:#24344d;
+  --primary:#3b82f6; --primary-soft:#1e3a5f; --ok:#22c55e; --ok-soft:#14532d;
+  --err:#f87171; --err-soft:#7f1d1d; --warn:#f59e0b; --warn-soft:#78350f;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);font-size:16px;line-height:1.6;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  transition:background .25s,color .25s;
+}
+/* 顶部栏 */
+header{
+  position:sticky;top:0;z-index:50;background:var(--card);
+  border-bottom:1px solid var(--line);padding:10px 16px;
+  display:flex;align-items:center;gap:10px;
+}
+header .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;flex:none}
+header h1{font-size:17px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .sub{font-size:11px;color:var(--sub);font-weight:400;display:block}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:18px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center}
+/* 主容器 */
+main{max-width:640px;margin:0 auto;padding:14px 14px 20px}
+.view{display:none;animation:fadeIn .22s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:none;padding:7px 15px;border-radius:999px;border:1.5px solid var(--line);
+  background:var(--card);color:var(--sub);font-size:13.5px;font-weight:600;cursor:pointer;
+  transition:all .15s;user-select:none;
+}
+.chip.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.chip .cnt{font-size:11px;opacity:.75;margin-left:3px}
+/* 题目卡片 */
+.qcard{
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:18px 16px;margin-bottom:14px;
+}
+.qhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.qnum{font-size:12.5px;font-weight:700;color:var(--primary);background:var(--primary-soft);padding:3px 10px;border-radius:999px}
+.qtype{font-size:11.5px;color:var(--sub);background:var(--line);padding:3px 10px;border-radius:999px}
+.qstem{font-size:17px;font-weight:600;line-height:1.75;margin-bottom:16px;word-break:break-word}
+/* 选项 */
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:flex;align-items:flex-start;gap:11px;padding:13px 14px;border-radius:13px;
+  border:1.5px solid var(--line);background:var(--card);cursor:pointer;user-select:none;
+  transition:all .15s;font-size:15.5px;line-height:1.55;
+}
+.opt:active{transform:scale(.985)}
+.opt .key{
+  flex:none;width:26px;height:26px;border-radius:8px;background:var(--bg);color:var(--sub);
+  font-weight:700;font-size:13.5px;display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.opt.sel{border-color:var(--primary);background:var(--primary-soft)}
+.opt.sel .key{background:var(--primary);color:#fff}
+.opt.correct{border-color:var(--ok);background:var(--ok-soft)}
+.opt.correct .key{background:var(--ok);color:#fff}
+.opt.wrong{border-color:var(--err);background:var(--err-soft);opacity:.85}
+.opt.wrong .key{background:var(--err);color:#fff}
+.opt.dim{opacity:.45}
+.opt.disabled{cursor:default}
+/* 判断题按钮 */
+.tf-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tf-btn{
+  padding:20px 10px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);
+  font-size:20px;font-weight:800;cursor:pointer;transition:all .15s;user-select:none;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.tf-btn small{font-size:12px;font-weight:600;color:var(--sub)}
+.tf-btn:active{transform:scale(.97)}
+.tf-btn.t{color:var(--ok)} .tf-btn.f{color:var(--err)}
+.tf-btn.sel-t{background:var(--ok-soft);border-color:var(--ok)}
+.tf-btn.sel-f{background:var(--err-soft);border-color:var(--err)}
+.tf-btn.right-t{background:var(--ok-soft);border-color:var(--ok)}
+.tf-btn.right-f{background:var(--err-soft);border-color:var(--err)}
+/* 反馈区 */
+.feedback{display:none;margin-top:14px;padding:13px 15px;border-radius:13px;font-size:14.5px;line-height:1.7}
+.feedback.show{display:block}
+.feedback.ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+.feedback.err{background:var(--err-soft);color:var(--err);border:1px solid var(--err)}
+.feedback .fb-title{font-weight:800;font-size:15px;margin-bottom:4px}
+.feedback .ans-line{margin-top:6px;font-weight:600}
+/* 操作按钮 */
+.actions{display:flex;gap:10px;margin-top:14px}
+.btn{
+  flex:1;padding:13px 10px;border-radius:13px;border:none;font-size:15.5px;font-weight:700;cursor:pointer;
+  transition:all .15s;user-select:none;color:#fff;background:var(--primary);
+}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn.ghost{background:var(--card);color:var(--sub);border:1.5px solid var(--line);font-weight:600}
+.btn.ok-btn{background:var(--ok)}
+.btn.hidden{visibility:hidden}
+/* 进度条 */
+.progress-wrap{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.progress{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2563eb,#06b6d4);border-radius:99px;transition:width .3s}
+.progress-txt{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap}
+/* 统计 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;text-align:center}
+.stat-card .num{font-size:28px;font-weight:800;color:var(--primary);line-height:1.2}
+.stat-card .num.green{color:var(--ok)} .stat-card .num.red{color:var(--err)} .stat-card .num.gray{color:var(--sub)}
+.stat-card .lbl{font-size:12.5px;color:var(--sub);margin-top:3px}
+.ring-wrap{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 16px;text-align:center;margin-bottom:14px}
+.ring{width:150px;height:150px;margin:4px auto 10px;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring .ring-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .ring-txt b{font-size:30px;font-weight:800}
+.ring .ring-txt span{font-size:12px;color:var(--sub)}
+.part-list{display:flex;flex-direction:column;gap:10px}
+.part-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.part-card:active{border-color:var(--primary)}
+.part-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.part-card .info{flex:1;min-width:0}
+.part-card .nm{font-weight:700;font-size:15.5px}
+.part-card .dt{font-size:12px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.part-bar{height:5px;border-radius:99px;background:var(--line);margin-top:7px;overflow:hidden}
+.part-bar i{display:block;height:100%;background:var(--primary);border-radius:99px}
+/* 错题本 */
+.wb-empty{text-align:center;padding:50px 20px;color:var(--sub);font-size:14.5px}
+.wb-item{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:13px 15px;margin-bottom:10px;cursor:pointer;border-left:4px solid var(--err)}
+.wb-item .q{font-size:14.5px;font-weight:600;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wb-item .meta{font-size:11.5px;color:var(--sub);margin-top:5px;display:flex;gap:8px;align-items:center}
+.wb-item .tag{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--line);color:var(--sub);font-weight:600}
+.wb-actions{display:flex;gap:10px;margin:12px 0 14px}
+/* 底部导航 */
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);
+  border-top:1px solid var(--line);display:flex;
+  padding-bottom:env(safe-area-inset-bottom);height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+}
+nav button{
+  flex:1;border:none;background:none;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+}
+nav button .ic{font-size:20px;line-height:1}
+nav button.on{color:var(--primary)}
+/* 弹层 */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:80;display:none;align-items:center;justify-content:center;padding:24px}
+.overlay.show{display:flex}
+.modal{background:var(--card);border-radius:18px;max-width:400px;width:100%;padding:22px;box-shadow:var(--shadow)}
+.modal h3{font-size:17px;margin-bottom:12px}
+.modal p{font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.7}
+.modal .m-actions{display:flex;gap:10px}
+.modal .m-actions .btn{flex:1}
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 24px);transform:translateX(-50%) translateY(20px);background:#0f172a;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:100;max-width:86vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hint{font-size:12.5px;color:var(--sub);text-align:center;margin-top:12px}
+.finished{text-align:center;padding:48px 20px}
+.finished .big{font-size:52px;margin-bottom:12px}
+.finished h2{font-size:20px;margin-bottom:8px}
+.finished p{color:var(--sub);font-size:14.5px;margin-bottom:20px}
+@media (min-width:640px){
+  main{max-width:720px}
+  .stat-grid{grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AI</div>
+  <h1>AI训练师刷题<span class="sub" id="headerSub">人工智能训练师（三级）理论</span></h1>
+  <button class="icon-btn" id="themeBtn" title="切换主题">🌙</button>
+</header>
+
+<main>
+  <!-- 刷题视图 -->
+  <section class="view active" id="view-quiz">
+    <div class="chips" id="partChips"></div>
+    <div class="chips" id="modeChips"></div>
+    <div class="progress-wrap">
+      <div class="progress"><i id="progressBar"></i></div>
+      <span class="progress-txt" id="progressTxt">0 / 0</span>
+    </div>
+    <div id="quizArea"></div>
+  </section>
+
+  <!-- 统计视图 -->
+  <section class="view" id="view-stats">
+    <div class="ring-wrap">
+      <div class="ring" id="ring"></div>
+      <div class="hint" id="ringHint">正确率（按已作答题目计算）</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num" id="stTotal">0</div><div class="lbl">总题数</div></div>
+      <div class="stat-card"><div class="num gray" id="stDone">0</div><div class="lbl">已作答</div></div>
+      <div class="stat-card"><div class="num green" id="stRight">0</div><div class="lbl">答对</div></div>
+      <div class="stat-card"><div class="num red" id="stWrong">0</div><div class="lbl">错题</div></div>
+    </div>
+    <div class="part-list" id="partList"></div>
+  </section>
+
+  <!-- 错题本视图 -->
+  <section class="view" id="view-wrong">
+    <div class="wb-actions">
+      <button class="btn ok-btn" id="retryWrongBtn">重练错题</button>
+      <button class="btn ghost" id="clearWrongBtn">清空错题本</button>
+    </div>
+    <div id="wrongList"></div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-view="quiz"><span class="ic">📝</span>刷题</button>
+  <button data-view="stats"><span class="ic">📊</span>统计</button>
+  <button data-view="wrong"><span class="ic">📕</span>错题本</button>
+</nav>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">提示</h3>
+    <p id="modalText"></p>
+    <div class="m-actions">
+      <button class="btn ghost" id="modalCancel">取消</button>
+      <button class="btn" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="questions.js"></script>
+<script>
+(function(){
+'use strict';
+
+var DATA = window.QUIZ_DATA;
+var PARTS = DATA.parts;                 // [{name,type,count,questions}]
+var REC_KEY = 'aitrainer_records_v1';   // { 'type:qid': answer }
+var THEME_KEY = 'aitrainer_theme';
+var SESSION_KEY = 'aitrainer_session';  // 当前会话（题序、位置、模式）
+
+var records = loadRecords();
+
+/* ---------- 工具 ---------- */
+function loadRecords(){
+  try{ return JSON.parse(localStorage.getItem(REC_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveRecords(){ try{ localStorage.setItem(REC_KEY, JSON.stringify(records)); }catch(e){} }
+function qKey(type, id){ return type + ':' + id; }
+function normalizeAns(a){
+  if (Array.isArray(a)) return a.slice().sort().join(',');
+  return String(a);
+}
+function isCorrect(type, q, userAns){
+  if (type === 'tf') return String(userAns) === q.answer;
+  if (Array.isArray(q.answer)) return normalizeAns(userAns) === normalizeAns(q.answer);
+  return String(userAns) === q.answer;
+}
+function getAnswered(type, id){ return records[qKey(type, id)]; }
+function getPart(type){ return PARTS.filter(function(p){return p.type===type;})[0]; }
+function allQuestions(type){
+  if (type === 'all') {
+    var arr = [];
+    PARTS.forEach(function(p){ p.questions.forEach(function(q){ arr.push({part:p.type, q:q}); }); });
+    return arr;
+  }
+  return getPart(type).questions.map(function(q){ return {part:type, q:q}; });
+}
+function shuffle(a){
+  a = a.slice();
+  for (var i=a.length-1; i>0; i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(function(){ t.classList.remove('show'); }, 1600);
+}
+function confirmDialog(title, text, okText, cb){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalText').textContent = text;
+  document.getElementById('modalOk').textContent = okText || '确定';
+  var overlay = document.getElementById('overlay');
+  overlay.classList.add('show');
+  function off(){ overlay.classList.remove('show'); document.getElementById('modalOk').onclick = null; document.getElementById('modalCancel').onclick = null; }
+  document.getElementById('modalOk').onclick = function(){ off(); cb && cb(true); };
+  document.getElementById('modalCancel').onclick = function(){ off(); cb && cb(false); };
+}
+
+/* ---------- 全局状态 ---------- */
+var state = {
+  part: 'all',          // all | tf | single | multi
+  mode: 'seq',          // seq | random | wrong
+  list: [],             // [{part, q}] 当前题序
+  pos: 0,               // 当前下标
+  answered: false,      // 本题是否已判分
+  userSel: null,        // 用户选择（tf: '√'/'×'；single: 'A'；multi: [..]）
+};
+
+/* ---------- 视图切换 ---------- */
+function switchView(name){
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.view === name); });
+  if (name === 'stats') renderStats();
+  if (name === 'wrong') renderWrong();
+}
+
+/* ---------- 题型 / 模式 chips ---------- */
+function renderPartChips(){
+  var box = document.getElementById('partChips');
+  box.innerHTML = '';
+  var items = [{type:'all', name:'全部'}].concat(PARTS.map(function(p){ return {type:p.type, name:p.name}; }));
+  items.forEach(function(it){
+    var b = document.createElement('button');
+    b.className = 'chip' + (state.part === it.type ? ' on' : '');
+    b.textContent = it.name;
+    b.onclick = function(){ state.part = it.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession(); };
+    box.appendChild(b);
+  });
+}
+function renderModeChips(){
+  var box = document.getElementById('modeChips');
+  box.innerHTML = '';
+  var modes = [
+    {m:'seq', name:'顺序刷题'}, {m:'random', name:'随机刷题'}, {m:'wrong', name:'错题重练'}
+  ];
+  modes.forEach(function(it){
+    var b = document.createElement('button');
+    b.className = 'chip' + (state.mode === it.m ? ' on' : '');
+    b.textContent = it.name;
+    b.onclick = function(){ state.mode = it.m; renderModeChips(); startSession(); };
+    box.appendChild(b);
+  });
+}
+
+/* ---------- 会话 ---------- */
+function startSession(){
+  var all = allQuestions(state.part);
+  if (state.mode === 'wrong') {
+    var wrong = all.filter(function(it){ var a = getAnswered(it.part, it.q.id); return a !== undefined && !isCorrect(it.part, it.q, a); });
+    if (wrong.length === 0){ renderFinished('🎉', '错题本已清空', '当前没有错题，继续加油！'); return; }
+    state.list = wrong;
+    state.pos = 0;
+  } else if (state.mode === 'random') {
+    state.list = shuffle(all);
+    state.pos = 0;
+  } else {
+    // 顺序：从第一个未答题开始
+    var start = 0;
+    for (var i=0;i<all.length;i++){
+      if (getAnswered(all[i].part, all[i].q.id) === undefined){ start = i; break; }
+    }
+    state.list = all;
+    state.pos = start;
+  }
+  state.answered = false;
+  state.userSel = null;
+  renderQuiz();
+}
+function current(){ return state.list[state.pos]; }
+
+/* ---------- 渲染题目 ---------- */
+function renderQuiz(){
+  var area = document.getElementById('quizArea');
+  if (!state.list.length) return;
+  if (state.pos >= state.list.length){ renderFinished('🎉','恭喜！本轮全部完成','可切换模式继续刷题'); return; }
+  var it = current();
+  var part = getPart(it.part);
+  var q = it.q;
+  var type = it.part;
+
+  // 进度
+  var total = state.list.length;
+  var doneCount = state.list.filter(function(x){ return getAnswered(x.part, x.q.id) !== undefined; }).length;
+  document.getElementById('progressTxt').textContent = '第 ' + (state.pos + 1) + ' / ' + total + ' 题';
+  document.getElementById('progressBar').style.width = Math.round((state.pos + (state.answered?1:0)) / total * 100) + '%';
+
+  var html = '';
+  html += '<div class="qcard">';
+  html += '<div class="qhead"><span class="qnum">第 ' + q.id + ' 题</span><span class="qtype">' + part.name + '</span></div>';
+  html += '<div class="qstem">' + escapeHtml(q.question) + '</div>';
+
+  var isTf = type === 'tf';
+  if (isTf) {
+    html += '<div class="tf-btns">';
+    html += '<button class="tf-btn t" data-a="√" id="tfT">√<small>正确</small></button>';
+    html += '<button class="tf-btn f" data-a="×" id="tfF">×<small>错误</small></button>';
+    html += '</div>';
+  } else {
+    html += '<div class="opts" id="opts">';
+    q.options.forEach(function(o){
+      html += '<div class="opt" data-label="' + o.label + '"><span class="key">' + o.label + '</span><span>' + escapeHtml(o.text) + '</span></div>';
+    });
+    html += '</div>';
+  }
+  html += '<div class="feedback" id="feedback"></div>';
+  html += '<div class="actions">';
+  html += '<button class="btn ghost" id="prevBtn">上一题</button>';
+  html += (type === 'multi') ? '<button class="btn" id="submitBtn">提交答案</button>' : '<button class="btn" id="nextBtn" disabled>下一题</button>';
+  html += '</div>';
+  html += '</div>';
+  area.innerHTML = html;
+
+  var qc = area.querySelector('.qcard');
+  var feedback = document.getElementById('feedback');
+
+  // 若该题已答过（非错题重练），直接显示历史作答状态
+  var saved = getAnswered(type, q.id);
+  if (saved !== undefined && state.mode !== 'wrong') {
+    state.answered = true;
+    var correct = isCorrect(type, q, saved);
+    state.userSel = saved;
+    renderAnswerState(qc, type, saved, correct, false);
+    feedback.innerHTML = buildFeedback(type, q, saved, correct, true);
+    feedback.className = 'feedback show ' + (correct ? 'ok' : 'err');
+    var nb = document.getElementById('nextBtn');
+    nb.disabled = false;
+  }
+
+  // 事件绑定
+  if (isTf) {
+    document.getElementById('tfT').onclick = function(){ if (!state.answered) judgeTf('√'); };
+    document.getElementById('tfF').onclick = function(){ if (!state.answered) judgeTf('×'); };
+  } else {
+    var opts = area.querySelectorAll('.opt');
+    opts.forEach(function(el){
+      el.onclick = function(){
+        if (state.answered) return;
+        var label = el.dataset.label;
+        if (type === 'single') {
+          opts.forEach(function(o){ o.classList.remove('sel'); });
+          el.classList.add('sel');
+          state.userSel = label;
+          judgeSingle();
+        } else {
+          el.classList.toggle('sel');
+        }
+      };
+    });
+    var sb = document.getElementById('submitBtn');
+    if (sb) sb.onclick = judgeMulti;
+  }
+  var pb = document.getElementById('prevBtn');
+  pb.onclick = function(){
+    if (state.pos > 0) { state.pos--; state.answered = false; state.userSel = null; renderQuiz(); }
+    else toast('已经是第一题');
+  };
+  var nb2 = document.getElementById('nextBtn');
+  if (nb2) nb2.onclick = next;
+}
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function judgeTf(ans){
+  var it = current(), q = it.q, type = it.part;
+  var correct = ans === q.answer;
+  state.userSel = ans; state.answered = true;
+  recordAnswer(type, q.id, ans, correct);
+  var qc = document.getElementById('quizArea').querySelector('.qcard');
+  renderAnswerState(qc, type, ans, correct, false);
+  showFeedback(type, q, ans, correct);
+  document.getElementById('nextBtn').disabled = false;
+}
+function judgeSingle(){
+  var it = current(), q = it.q, type = it.part;
+  var ans = state.userSel;
+  var correct = ans === q.answer;
+  state.answered = true;
+  recordAnswer(type, q.id, ans, correct);
+  var qc = document.getElementById('quizArea').querySelector('.qcard');
+  renderAnswerState(qc, type, ans, correct, false);
+  showFeedback(type, q, ans, correct);
+  document.getElementById('nextBtn').disabled = false;
+}
+function judgeMulti(){
+  var it = current(), q = it.q, type = it.part;
+  var opts = document.querySelectorAll('#quizArea .opt.sel');
+  if (!opts.length){ toast('请至少选择一个选项'); return; }
+  var ans = [];
+  opts.forEach(function(o){ ans.push(o.dataset.label); });
+  var correct = normalizeAns(ans) === normalizeAns(q.answer);
+  state.userSel = ans; state.answered = true;
+  recordAnswer(type, q.id, ans, correct);
+  renderAnswerState(document.getElementById('quizArea').querySelector('.qcard'), type, ans, correct, false);
+  showFeedback(type, q, ans, correct);
+  document.getElementById('nextBtn').disabled = false;
+}
+function renderAnswerState(qc, type, userAns, correct, isHistory){
+  var q = current().q;
+  if (type === 'tf') {
+    var t = document.getElementById('tfT'), f = document.getElementById('tfF');
+    t.classList.add(userAns === '√' ? 'right-t' : 'dim');
+    f.classList.add(userAns === '×' ? 'right-f' : 'dim');
+    t.disabled = true; f.disabled = true;
+    return;
+  }
+  var opts = qc.querySelectorAll('.opt');
+  opts.forEach(function(el){
+    el.classList.add('disabled');
+    var label = el.dataset.label;
+    var chosen = Array.isArray(userAns) ? userAns.indexOf(label) > -1 : String(userAns) === label;
+    var isAns = q.answer.indexOf(label) > -1;
+    if (isAns) el.classList.add('correct');
+    else if (chosen) el.classList.add('wrong');
+    else el.classList.add('dim');
+  });
+}
+function buildFeedback(type, q, userAns, correct, isHistory){
+  var h = '<div class="fb-title">' + (correct ? '✅ 回答正确' : '❌ 回答错误') + '</div>';
+  if (type === 'tf') {
+    h += '<div class="ans-line">正确答案：' + q.answer + '</div>';
+  } else {
+    var rightTxt = q.answer.map(function(a){
+      var o = q.options.filter(function(x){ return x.label === a; })[0];
+      return a + '.' + o.text;
+    }).join('　');
+    h += '<div class="ans-line">正确答案：' + rightTxt + '</div>';
+  }
+  return h;
+}
+function showFeedback(type, q, userAns, correct){
+  var fb = document.getElementById('feedback');
+  fb.innerHTML = buildFeedback(type, q, userAns, correct, false);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'err');
+}
+function recordAnswer(type, id, ans, correct){
+  records[qKey(type, id)] = ans;
+  saveRecords();
+  // 错题重练模式：答对自动移出错题本
+  if (state.mode === 'wrong' && correct) {
+    setTimeout(function(){ toast('答对了，已从错题本移除 ✔'); }, 400);
+  }
+}
+function next(){
+  if (!state.answered){ toast('请先作答'); return; }
+  if (state.pos < state.list.length - 1) {
+    state.pos++; state.answered = false; state.userSel = null; renderQuiz();
+  } else {
+    renderFinished('🎉', '本轮完成！', '共 ' + state.list.length + ' 题，可切换模式继续刷题');
+  }
+}
+function renderFinished(emoji, title, desc){
+  var area = document.getElementById('quizArea');
+  var total = state.list.length;
+  var done = state.list.filter(function(x){ return getAnswered(x.part, x.q.id) !== undefined; }).length;
+  document.getElementById('progressTxt').textContent = done + ' / ' + total + ' 已作答';
+  document.getElementById('progressBar').style.width = Math.round(done / total * 100) + '%';
+  area.innerHTML = '<div class="finished"><div class="big">' + emoji + '</div><h2>' + title + '</h2><p>' + desc + '</p>' +
+    '<div class="actions"><button class="btn" id="againBtn">再来一轮</button>' +
+    (state.mode !== 'wrong' ? '<button class="btn ghost" id="wrongGoBtn">查看错题</button>' : '') + '</div></div>';
+  var ab = document.getElementById('againBtn');
+  ab.onclick = startSession;
+  var wb = document.getElementById('wrongGoBtn');
+  if (wb) wb.onclick = function(){ switchView('wrong'); };
+}
+
+/* ---------- 统计 ---------- */
+function renderStats(){
+  var total = 0, done = 0, right = 0;
+  var perPart = [];
+  PARTS.forEach(function(p){
+    var pd = 0, pr = 0;
+    p.questions.forEach(function(q){
+      total++;
+      var a = getAnswered(p.type, q.id);
+      if (a !== undefined){ done++; pd++; if (isCorrect(p.type, q, a)){ right++; pr++; } }
+    });
+    perPart.push({name:p.name, type:p.type, count:p.questions.length, done:pd, right:pr});
+  });
+  document.getElementById('stTotal').textContent = total;
+  document.getElementById('stDone').textContent = done;
+  document.getElementById('stRight').textContent = right;
+  document.getElementById('stWrong').textContent = done - right;
+
+  // 环形图
+  var pct = done ? Math.round(right / done * 100) : 0;
+  var ring = document.getElementById('ring');
+  var r = 66, c = 2 * Math.PI * r;
+  var off = c * (1 - pct / 100);
+  ring.innerHTML =
+    '<svg width="150" height="150" viewBox="0 0 150 150">' +
+    '<circle cx="75" cy="75" r="' + r + '" fill="none" stroke="var(--line)" stroke-width="14"/>' +
+    '<circle cx="75" cy="75" r="' + r + '" fill="none" stroke="' + (pct >= 60 ? '#16a34a' : pct >= 30 ? '#d97706' : '#dc2626') + '" stroke-width="14" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + off + '"/>' +
+    '</svg>' +
+    '<div class="ring-txt"><b>' + pct + '%</b><span>正确率</span></div>';
+  document.getElementById('ringHint').textContent = done ? ('已作答 ' + done + ' 题 · 答对 ' + right + ' 题') : '暂无作答记录，去刷题吧！';
+
+  // 分题型
+  var list = document.getElementById('partList');
+  list.innerHTML = '';
+  perPart.forEach(function(p){
+    var pct2 = p.done ? Math.round(p.right / p.done * 100) : 0;
+    var colors = {tf:['#2563eb','#dbeafe'], single:['#059669','#d1fae5'], multi:['#d97706','#fef3c7']};
+    var col = colors[p.type] || ['#64748b','#e2e8f0'];
+    var el = document.createElement('div');
+    el.className = 'part-card';
+    el.innerHTML = '<div class="part-ico" style="background:' + col[1] + '">' + (p.type==='tf'?'⚖️':p.type==='single'?'🔘':'☑️') + '</div>' +
+      '<div class="info"><div class="nm">' + p.name + '</div>' +
+      '<div class="dt">已答 ' + p.done + ' / ' + p.count + ' · 对 ' + p.right + ' · 正确率 ' + pct2 + '%</div>' +
+      '<div class="part-bar"><i style="width:' + Math.round(p.done/p.count*100) + '%;background:' + col[0] + '"></i></div></div>';
+    el.onclick = function(){ state.part = p.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession(); switchView('quiz'); };
+    list.appendChild(el);
+  });
+}
+
+/* ---------- 错题本 ---------- */
+function wrongList(){
+  var arr = [];
+  PARTS.forEach(function(p){
+    p.questions.forEach(function(q){
+      var a = getAnswered(p.type, q.id);
+      if (a !== undefined && !isCorrect(p.type, q, a)) arr.push({part:p.type, q:q});
+    });
+  });
+  return arr;
+}
+function renderWrong(){
+  var box = document.getElementById('wrongList');
+  var wl = wrongList();
+  document.getElementById('retryWrongBtn').textContent = '重练错题（' + wl.length + '）';
+  if (!wl.length){
+    box.innerHTML = '<div class="wb-empty">📕 错题本是空的<br><span style="font-size:12.5px">做错的题目会自动收录到这里</span></div>';
+    return;
+  }
+  box.innerHTML = '';
+  wl.forEach(function(it){
+    var part = getPart(it.part);
+    var el = document.createElement('div');
+    el.className = 'wb-item';
+    el.innerHTML = '<div class="q">' + escapeHtml(it.q.question) + '</div>' +
+      '<div class="meta"><span class="tag">' + part.name + '</span><span>第' + it.q.id + '题</span>' +
+      '<span style="color:var(--err)">正确答案：' + answerText(it.q) + '</span></div>';
+    el.onclick = function(){
+      state.part = it.part; state.mode = 'wrong'; renderPartChips(); renderModeChips();
+      state.list = wrongList(); state.pos = state.list.indexOf(it); state.answered=false; state.userSel=null;
+      renderQuiz(); switchView('quiz');
+    };
+    box.appendChild(el);
+  });
+}
+function answerText(q){
+  if (q.answer === '√' || q.answer === '×') return q.answer;
+  if (Array.isArray(q.answer)) return q.answer.join('');
+  return q.answer;
+}
+function retryWrong(){
+  var wl = wrongList();
+  if (!wl.length){ toast('没有错题'); return; }
+  state.part = 'all'; state.mode = 'wrong';
+  renderPartChips(); renderModeChips();
+  state.list = wl; state.pos = 0; state.answered=false; state.userSel=null;
+  renderQuiz(); switchView('quiz');
+}
+
+/* ---------- 主题 ---------- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem(THEME_KEY, t);
+}
+
+/* ---------- 初始化 ---------- */
+function init(){
+  var savedTheme = localStorage.getItem(THEME_KEY) ||
+    (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(savedTheme);
+  document.getElementById('themeBtn').onclick = function(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  };
+  document.querySelectorAll('nav button').forEach(function(b){
+    b.onclick = function(){ switchView(b.dataset.view); };
+  });
+  document.getElementById('retryWrongBtn').onclick = retryWrong;
+  document.getElementById('clearWrongBtn').onclick = function(){
+    var wl = wrongList();
+    if (!wl.length){ toast('错题本是空的'); return; }
+    confirmDialog('清空错题本', '将删除 ' + wl.length + ' 道错题的记录（仅从错题本移除，题目仍可重刷）。确定继续吗？', '清空', function(ok){
+      if (!ok) return;
+      wl.forEach(function(it){ delete records[qKey(it.part, it.q.id)]; });
+      saveRecords(); renderWrong(); renderStats();
+      toast('错题本已清空');
+    });
+  };
+  var sub = document.getElementById('headerSub');
+  sub.textContent = DATA.title + ' · 共 ' + DATA.total + ' 题';
+  renderPartChips();
+  renderModeChips();
+  startSession();
+}
+document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
