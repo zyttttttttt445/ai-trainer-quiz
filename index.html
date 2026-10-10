@@ -52,6 +52,26 @@ main{max-width:640px;margin:0 auto;padding:14px 14px 20px}
 }
 .chip.on{background:var(--primary);border-color:var(--primary);color:#fff}
 .chip .cnt{font-size:11px;opacity:.75;margin-left:3px}
+/* 可收起筛选栏 */
+.filter-toggle{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 12px;border-radius:12px;border:1.5px dashed var(--line);
+  background:var(--card);color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;
+  transition:all .15s;user-select:none;margin-bottom:10px;
+}
+.filter-toggle .fl-ic{font-size:15px}
+.filter-toggle .ar{transition:transform .2s;font-size:11px;display:inline-block}
+.filter-toggle:active{transform:scale(.985)}
+.filter-toggle.open{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
+.filter-toggle.open .ar{transform:rotate(180deg)}
+.chips-wrap{max-height:0;overflow:hidden;transition:max-height .28s ease}
+.chips-wrap.open{max-height:220px}
+/* 题卡舞台：垂直居中 */
+.quiz-stage{
+  min-height:calc(100dvh - 132px);min-height:calc(100vh - 132px);
+  display:flex;flex-direction:column;justify-content:center;
+}
+@media (min-width:640px){ .quiz-stage{min-height:calc(100dvh - 142px)} }
 /* 题目卡片 */
 .qcard{
   background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
@@ -218,13 +238,18 @@ nav button.on{color:var(--primary)}
 <main>
   <!-- 刷题视图 -->
   <section class="view active" id="view-quiz">
-    <div class="chips" id="partChips"></div>
-    <div class="chips" id="modeChips"></div>
-    <div class="progress-wrap">
-      <div class="progress"><i id="progressBar"></i></div>
-      <span class="progress-txt" id="progressTxt">0 / 0</span>
+    <button class="filter-toggle" id="filterToggle"><span class="fl-ic">🎯</span><span id="filterLabel">全部 · 顺序刷题</span><span class="ar">▾</span></button>
+    <div class="chips-wrap" id="chipsWrap">
+      <div class="chips" id="partChips"></div>
+      <div class="chips" id="modeChips"></div>
     </div>
-    <div id="quizArea"></div>
+    <div class="quiz-stage">
+      <div class="progress-wrap">
+        <div class="progress"><i id="progressBar"></i></div>
+        <span class="progress-txt" id="progressTxt">0 / 0</span>
+      </div>
+      <div id="quizArea"></div>
+    </div>
   </section>
 
   <!-- 统计视图 -->
@@ -387,6 +412,26 @@ function switchView(name){
 }
 
 /* ---------- 题型 / 模式 chips ---------- */
+function partName(type){
+  if (type === 'all') return '全部';
+  var p = getPart(type);
+  return p ? p.name : '';
+}
+function modeName(m){
+  return ({seq:'顺序刷题', random:'随机刷题', wrong:'错题重练'})[m] || m;
+}
+function updateFilterLabel(){
+  var lbl = document.getElementById('filterLabel');
+  if (lbl) lbl.textContent = partName(state.part) + ' · ' + modeName(state.mode);
+}
+function toggleFilter(open){
+  var wrap = document.getElementById('chipsWrap');
+  var btn = document.getElementById('filterToggle');
+  if (open === undefined) open = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', open);
+  btn.classList.toggle('open', open);
+}
+function collapseFilter(){ toggleFilter(false); }
 function renderPartChips(){
   var box = document.getElementById('partChips');
   box.innerHTML = '';
@@ -395,7 +440,7 @@ function renderPartChips(){
     var b = document.createElement('button');
     b.className = 'chip' + (state.part === it.type ? ' on' : '');
     b.textContent = it.name;
-    b.onclick = function(){ state.part = it.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession(); };
+    b.onclick = function(){ state.part = it.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); updateFilterLabel(); collapseFilter(); startSession(); };
     box.appendChild(b);
   });
 }
@@ -409,7 +454,7 @@ function renderModeChips(){
     var b = document.createElement('button');
     b.className = 'chip' + (state.mode === it.m ? ' on' : '');
     b.textContent = it.name;
-    b.onclick = function(){ state.mode = it.m; renderModeChips(); startSession(); };
+    b.onclick = function(){ state.mode = it.m; renderModeChips(); updateFilterLabel(); collapseFilter(); startSession(); };
     box.appendChild(b);
   });
 }
@@ -803,7 +848,7 @@ function renderStats(){
       '<div class="info"><div class="nm">' + p.name + '</div>' +
       '<div class="dt">已做 ' + p.done + ' / ' + p.count + ' · 累计 ' + p.tries + ' 遍 · 对 ' + p.right + ' · 正确率 ' + pct2 + '%</div>' +
       '<div class="part-bar"><i style="width:' + Math.round(p.done/p.count*100) + '%;background:' + col[0] + '"></i></div></div>';
-    el.onclick = function(){ state.part = p.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession(); switchView('quiz'); };
+    el.onclick = function(){ state.part = p.type; state.mode = 'seq'; renderPartChips(); renderModeChips(); updateFilterLabel(); collapseFilter(); startSession(); switchView('quiz'); };
     list.appendChild(el);
   });
 }
@@ -840,7 +885,7 @@ function renderWrong(){
       '<span class="fail">答错 ' + it.rec.fail + ' 次</span>' + weak +
       '<span style="color:var(--err)">正确答案：' + answerText(it.q) + '</span></div>';
     el.onclick = function(){
-      state.part = it.part; state.mode = 'wrong'; renderPartChips(); renderModeChips();
+      state.part = it.part; state.mode = 'wrong'; renderPartChips(); renderModeChips(); updateFilterLabel(); collapseFilter();
       state.list = wrongList(); state.pos = state.list.indexOf(it); state.answered=false; state.userSel=null;
       renderQuiz(); switchView('quiz');
     };
@@ -856,7 +901,7 @@ function retryWrong(){
   var wl = wrongList();
   if (!wl.length){ toast('没有错题'); return; }
   state.part = 'all'; state.mode = 'wrong';
-  renderPartChips(); renderModeChips();
+  renderPartChips(); renderModeChips(); updateFilterLabel(); collapseFilter();
   state.list = wl; state.pos = 0; state.answered=false; state.userSel=null;
   renderQuiz(); switchView('quiz');
 }
@@ -880,6 +925,8 @@ function init(){
   document.querySelectorAll('nav button').forEach(function(b){
     b.onclick = function(){ switchView(b.dataset.view); };
   });
+  document.getElementById('filterToggle').onclick = function(){ toggleFilter(); };
+  updateFilterLabel();
   document.getElementById('retryWrongBtn').onclick = retryWrong;
   document.getElementById('clearWrongBtn').onclick = function(){
     var wl = wrongList();
@@ -897,7 +944,7 @@ function init(){
       if (!ok) return;
       records = {};
       saveRecords(); renderStats(); renderWrong();
-      state.part = 'all'; state.mode = 'seq'; renderPartChips(); renderModeChips(); startSession();
+      state.part = 'all'; state.mode = 'seq'; renderPartChips(); renderModeChips(); updateFilterLabel(); collapseFilter(); startSession();
       toast('已重置，从头开始刷题');
     });
   };
