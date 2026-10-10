@@ -62,9 +62,6 @@ main{max-width:640px;margin:0 auto;padding:14px 14px 20px}
 .qtype{font-size:11.5px;color:var(--sub);background:var(--line);padding:3px 10px;border-radius:999px}
 .qcnt{font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-soft);padding:3px 10px;border-radius:999px}
 .qcnt.fail{color:var(--err);background:var(--err-soft)}
-/* 滑动提示 */
-.swipe-hint{font-size:11.5px;color:var(--sub);text-align:center;margin:-4px 0 10px;display:flex;align-items:center;justify-content:center;gap:14px;user-select:none}
-.swipe-hint span{display:inline-flex;align-items:center;gap:3px}
 /* 重新作答 */
 .redo-row{margin-top:12px}
 .redo-btn{width:100%;padding:10px;border-radius:12px;border:1.5px dashed var(--warn);background:var(--warn-soft);color:var(--warn);font-size:13.5px;font-weight:700;cursor:pointer;transition:all .15s;user-select:none}
@@ -468,7 +465,6 @@ function renderQuiz(){
   document.getElementById('progressBar').style.width = Math.round((state.pos + (state.answered?1:0)) / total * 100) + '%';
 
   var html = '';
-  html += '<div class="swipe-hint"><span>👆 上滑下一题</span><span>👇 下滑上一题</span></div>';
   html += '<div class="qcard">';
   var badge = '';
   if (rec) badge = '<span class="qcnt' + (rec.fail > 0 ? ' fail' : '') + '">已答 ' + (rec.ok + rec.fail) + ' 次 · 对 ' + rec.ok + ' 错 ' + rec.fail + '</span>';
@@ -587,7 +583,7 @@ function showExplain(auto){
   else box.classList.remove('open');
   expToggleLabel(box);
 }
-/* ---------- 滑动刷题（上滑下一题 / 下滑上一题） ---------- */
+/* ---------- 滑动刷题（左滑下一题 / 右滑上一题） ---------- */
 function bindSwipe(){
   var qc = document.getElementById('quizArea').querySelector('.qcard');
   if (!qc || qc._swiped) return;
@@ -607,16 +603,16 @@ function bindSwipe(){
     var dx = t.clientX - sx, dy = t.clientY - sy;
     // 页面在滚动（内容超屏）→ 取消滑动手势，交给页面滚动
     if (Math.abs(scrollTop() - startScroll) > 8){ active = false; return; }
-    // 横向滑动 → 取消
-    if (Math.abs(dx) > Math.abs(dy) * 1.5){ active = false; return; }
-    if (Math.abs(dy) > 14) moved = true;
+    // 纵向为主 → 取消（让位给页面上下滚动）
+    if (Math.abs(dy) > Math.abs(dx) * 1.5){ active = false; return; }
+    if (Math.abs(dx) > 14) moved = true;
   }, {passive: true});
   qc.addEventListener('touchend', function(e){
     if (!active || !moved){ active = false; return; }
-    var dy = (e.changedTouches[0].clientY - sy);
+    var dx = (e.changedTouches[0].clientX - sx);
     active = false; moved = false;
-    if (dy < -60) next();        // 上滑 → 下一题
-    else if (dy > 60) prev();    // 下滑 → 上一题
+    if (dx < -60) next();        // 左滑 → 下一题
+    else if (dx > 60) prev();    // 右滑 → 上一题
   }, {passive: true});
 }
 function prev(){
